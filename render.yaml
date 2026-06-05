@@ -1,0 +1,28 @@
+# Render Blueprint — one free web service that runs the Express API and serves
+# the built React frontend. ChromaDB is offloaded to Chroma Cloud (free tier).
+#
+# Secrets (GROQ_API_KEY, CHROMA_API_KEY, CHROMA_TENANT) are marked `sync: false`,
+# so Render will prompt you to enter them in the dashboard on first deploy.
+services:
+  - type: web
+    name: documind
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20.11.1"
+      - key: RELEVANCE_THRESHOLD
+        value: "0.1"
+      - key: CHROMA_DATABASE
+        value: documind
+      - key: GROQ_API_KEY
+        sync: false
+      - key: CHROMA_API_KEY
+        sync: false
+      - key: CHROMA_TENANT
+        sync: false

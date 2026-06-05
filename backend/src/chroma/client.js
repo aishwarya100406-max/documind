@@ -1,4 +1,4 @@
-import { ChromaClient } from 'chromadb';
+import { ChromaClient, CloudClient } from 'chromadb';
 import { embedMany } from '../pipeline/embeddings.js';
 
 /**
@@ -17,7 +17,17 @@ let client = null;
 
 export function getChroma() {
   if (!client) {
-    client = new ChromaClient({ path: process.env.CHROMA_URL || 'http://localhost:8001' });
+    // In production (e.g. Render) use Chroma Cloud when an API key is configured;
+    // otherwise fall back to a local `chroma run` server for development.
+    if (process.env.CHROMA_API_KEY) {
+      client = new CloudClient({
+        apiKey: process.env.CHROMA_API_KEY,
+        tenant: process.env.CHROMA_TENANT,
+        database: process.env.CHROMA_DATABASE || 'documind',
+      });
+    } else {
+      client = new ChromaClient({ path: process.env.CHROMA_URL || 'http://localhost:8001' });
+    }
   }
   return client;
 }

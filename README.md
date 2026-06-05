@@ -137,10 +137,44 @@ CHROMA_URL=http://localhost:8001
 {"type":"done"}
 ```
 
+## Deploy to Render (free)
+
+DocuMind deploys as **one free Render web service** (Express serves the API *and* the
+built React app) plus **Chroma Cloud** (free tier) for the vector DB. The repo includes
+a `render.yaml` blueprint.
+
+**1. Create a free Chroma Cloud database** → https://trychroma.com
+   - Sign up, create a database named `documind`, and copy your **API key**, **tenant
+     ID**, and **database name**.
+
+**2. Push this repo to GitHub** (Render deploys from a Git host).
+
+**3. Create the Render service**
+   - Render dashboard → **New → Blueprint** → pick your GitHub repo. Render reads
+     `render.yaml` and creates the `documind` web service.
+   - When prompted, fill in the secret env vars:
+     - `GROQ_API_KEY` — your Groq key
+     - `CHROMA_API_KEY` / `CHROMA_TENANT` — from Chroma Cloud
+   - (`CHROMA_DATABASE`, `NODE_ENV`, `RELEVANCE_THRESHOLD` are preset in the blueprint.)
+   - Deploy. Build runs `npm run build` (installs + builds frontend, installs backend);
+     start runs `npm start`. Render injects `PORT` automatically.
+
+**4. Open the service URL** — the React app and `/api` are served from the same origin.
+
+### Free-tier caveats
+- **RAM:** the local MiniLM embedder loads into memory; Render free is **512 MB**, which
+  is tight and *may* OOM. If you see out-of-memory restarts, either upgrade to the
+  **Starter** instance or switch embeddings to a hosted API.
+- **Storage is ephemeral:** SQLite (`backend/data`) and uploaded PDFs reset on each
+  deploy/sleep. **Vectors in Chroma Cloud persist.** For durable docs/history, add a
+  Render persistent disk (paid).
+- **Cold starts:** free services sleep after ~15 min idle; first request wakes it (slow)
+  and re-downloads the ~25 MB embedding model.
+
 ## Notes & troubleshooting
 
-- **ChromaDB not reachable** → ensure `chroma run --port 8001` is running and
-  `CHROMA_URL` matches.
+- **ChromaDB not reachable** → locally, ensure `chroma run --port 8001` is running and
+  `CHROMA_URL` matches. In production, set `CHROMA_API_KEY`/`CHROMA_TENANT` (Chroma Cloud).
 - **Chat fails immediately** → `GROQ_API_KEY` missing/invalid in `backend/.env`.
 - **"No extractable text"** → the PDF is likely scanned/image-only (no OCR here).
 - **Short docs always get "couldn't find relevant information"** → a document

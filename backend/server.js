@@ -1,8 +1,10 @@
 import 'dotenv/config';
+import fs from 'fs';
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 
-import { ensureDirs } from './src/util/paths.js';
+import { ensureDirs, FRONTEND_DIST } from './src/util/paths.js';
 import { initDb } from './src/db/sqlite.js';
 import documentsRouter from './src/routes/documents.js';
 import chatRouter from './src/routes/chat.js';
@@ -17,6 +19,16 @@ app.use(express.json({ limit: '2mb' }));
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'documind' }));
 app.use('/api/documents', documentsRouter);
 app.use('/api/chat', chatRouter);
+
+// In production, serve the built React app from the same origin (no CORS, one URL).
+if (fs.existsSync(FRONTEND_DIST)) {
+  app.use(express.static(FRONTEND_DIST));
+  // SPA fallback for client-side routes — but never swallow /api/* requests.
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(path.join(FRONTEND_DIST, 'index.html'));
+  });
+}
 
 // Centralized error handler (catches multer file-size / file-type errors etc.)
 app.use((err, req, res, next) => {
