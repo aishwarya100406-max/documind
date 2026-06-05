@@ -69,8 +69,10 @@ export async function ingestDocument(docId, filePath) {
 
     await collection.add({ ids, embeddings, documents: texts, metadatas });
 
-    db.prepare('UPDATE documents SET chunk_count = ?, pages = ?, status = ? WHERE id = ?')
-      .run(chunks.length, totalPages, 'ready', docId);
+    // Persist per-page text so summaries don't have to re-fetch from the vector DB.
+    db.prepare(
+      'UPDATE documents SET chunk_count = ?, pages = ?, pages_json = ?, status = ? WHERE id = ?'
+    ).run(chunks.length, totalPages, JSON.stringify(pageTexts), 'ready', docId);
 
     console.log(`[ingest] ${docId} ready — ${chunks.length} chunks across ${totalPages} page(s)`);
     return { chunkCount: chunks.length, pages: totalPages };

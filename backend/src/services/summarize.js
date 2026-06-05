@@ -1,40 +1,33 @@
-import { getOrCreateCollection } from '../chroma/client.js';
+import { getDb } from '../db/sqlite.js';
 import { completeAnswer } from './groq.js';
 
 /**
- * Page-wise auto-summary: pull every chunk from Chroma, group the text back
- * together by page, and ask Groq for a per-page summary that covers all the
- * important points (including any formulas/equations) on each page.
+ * Page-wise auto-summary. Reads the per-page text captured at ingestion time
+ * (stored in SQLite as `pages_json`) and asks Groq for a per-page summary that
+ * covers all the important points, including any formulas/equations.
+ *
+ * This deliberately does NOT re-fetch from the vector DB — Chroma Cloud rejects
+ * the older client's bulk `get()` call, and the source text is the better basis
+ * for a summary anyway.
  */
 export async function summarizeDocument(docId) {
-  const collection = await getOrCreateCollection(docId);
-  const data = await collection.get({ limit: 5000 });
-  const docs = data.documents || [];
-  const metas = data.metadatas || [];
+  const row = getDb().prepare('SELECT pages_json FROM documents WHERE id = ?').get(docId);
 
-  if (docs.length === 0) {
-    throw new Error('No chunks available to summarize');
+  let pages;
+  try {
+    pages = row?.pages_json ? JSON.parse(row.pages_json) : null;
+  } catch {
+    pages = null;
   }
 
-  // Group chunk text by page, preserving in-page chunk order.
-  const byPage = new Map();
-  docs.forEach((text, i) => {
-    const page = metas[i]?.page ?? 1;
-    const chunkIndex = metas[i]?.chunk_index ?? i;
-    if (!byPage.has(page)) byPage.set(page, []);
-    byPage.get(page).push([chunkIndex, text]);
-  });
+  if (!pages || pages.length === 0) {
+    throw new Error('No document text available to summarize (re-upload the document)');
+  }
 
-  const pages = [...byPage.keys()].sort((a, b) => a - b);
   let context = '';
-  for (const page of pages) {
-    const pageText = byPage
-      .get(page)
-      .sort((a, b) => a[0] - b[0])
-      .map((x) => x[1])
-      .join(' ');
-    context += `\n=== Page ${page} ===\n${pageText}\n`;
-  }
+  pages.forEach((text, i) => {
+    context += `\n=== Page ${i + 1} ===\n${text}\n`;
+  });
   // llama-3.1-8b-instant has a large (128k) context window, so we can include a lot.
   context = context.slice(0, 60000);
 

@@ -22,7 +22,8 @@ export function initDb() {
       chunk_count INTEGER NOT NULL DEFAULT 0,
       pages       INTEGER NOT NULL DEFAULT 0,
       status      TEXT NOT NULL DEFAULT 'processing',
-      summary     TEXT
+      summary     TEXT,
+      pages_json  TEXT                     -- JSON array of per-page extracted text (for summaries)
     );
 
     CREATE TABLE IF NOT EXISTS chat_history (
@@ -39,9 +40,12 @@ export function initDb() {
     CREATE INDEX IF NOT EXISTS idx_chat_doc ON chat_history(doc_id);
   `);
 
-  // Migration: add `pages` to databases created before page-aware ingestion.
+  // Migrations for databases created before later columns were added.
   const cols = d.prepare('PRAGMA table_info(documents)').all();
   if (!cols.some((c) => c.name === 'pages')) {
     d.exec('ALTER TABLE documents ADD COLUMN pages INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!cols.some((c) => c.name === 'pages_json')) {
+    d.exec('ALTER TABLE documents ADD COLUMN pages_json TEXT');
   }
 }
