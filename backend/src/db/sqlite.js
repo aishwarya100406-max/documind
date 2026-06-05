@@ -23,7 +23,8 @@ export function initDb() {
       pages       INTEGER NOT NULL DEFAULT 0,
       status      TEXT NOT NULL DEFAULT 'processing',
       summary     TEXT,
-      pages_json  TEXT                     -- JSON array of per-page extracted text (for summaries)
+      pages_json  TEXT,                    -- JSON array of per-page extracted text (for summaries)
+      error_message TEXT                   -- why ingestion failed, if status = 'error'
     );
 
     CREATE TABLE IF NOT EXISTS chat_history (
@@ -47,5 +48,8 @@ export function initDb() {
   }
   if (!cols.some((c) => c.name === 'pages_json')) {
     d.exec('ALTER TABLE documents ADD COLUMN pages_json TEXT');
+  }
+  if (!cols.some((c) => c.name === 'error_message')) {
+    d.exec('ALTER TABLE documents ADD COLUMN error_message TEXT');
   }
 }

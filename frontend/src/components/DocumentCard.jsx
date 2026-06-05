@@ -65,6 +65,12 @@ export default function DocumentCard({ doc, active, onSelect, onChanged }) {
         </span>
       </div>
 
+      {doc.status === 'error' && doc.error_message && (
+        <p className="mt-2 text-[11px] text-red-600 bg-red-50 border border-red-200 rounded p-2">
+          {doc.error_message}
+        </p>
+      )}
+
       {doc.status === 'ready' && (
         <div className="mt-2">
           {doc.summary ? (

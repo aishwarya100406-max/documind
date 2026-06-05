@@ -57,7 +57,10 @@ export async function ingestDocument(docId, filePath) {
     });
 
     if (chunks.length === 0) {
-      throw new Error('No extractable text found in PDF (it may be scanned/image-only).');
+      throw new Error(
+        'No extractable text found — this looks like a scanned or image-only file. ' +
+          'DocuMind reads the text layer of a document; OCR the file first, or upload a text-based version.'
+      );
     }
 
     const texts = chunks.map((c) => c.text);
@@ -77,7 +80,8 @@ export async function ingestDocument(docId, filePath) {
     console.log(`[ingest] ${docId} ready — ${chunks.length} chunks across ${totalPages} page(s)`);
     return { chunkCount: chunks.length, pages: totalPages };
   } catch (err) {
-    db.prepare('UPDATE documents SET status = ? WHERE id = ?').run('error', docId);
+    db.prepare('UPDATE documents SET status = ?, error_message = ? WHERE id = ?')
+      .run('error', err.message, docId);
     console.error(`[ingest] ${docId} failed: ${err.message}`);
     throw err;
   }
