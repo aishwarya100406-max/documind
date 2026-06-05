@@ -6,26 +6,38 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { UPLOAD_DIR } from '../util/paths.js';
 import { getDb } from '../db/sqlite.js';
-import { ingestDocument } from '../pipeline/ingest.js';
+import { ingestDocument, SUPPORTED_EXTENSIONS } from '../pipeline/ingest.js';
 import { deleteCollection } from '../chroma/client.js';
 import { summarizeDocument } from '../services/summarize.js';
 
 const router = express.Router();
 
+// Max upload size in MB. Configurable via env — keep it modest on small
+// instances (e.g. Render free 512MB), since the whole file is parsed + embedded
+// in memory during ingestion.
+const MAX_UPLOAD_MB = Number(process.env.MAX_UPLOAD_MB ?? 50);
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOAD_DIR),
   filename: (req, file, cb) => {
     const id = req._docId || (req._docId = uuidv4());
-    cb(null, `${id}.pdf`);
+    const ext = path.extname(file.originalname).toLowerCase() || '.bin';
+    cb(null, `${id}${ext}`);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  limits: { fileSize: MAX_UPLOAD_MB * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (file.mimetype === 'application/pdf') cb(null, true);
-    else cb(new Error('Only PDF files are allowed'));
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (SUPPORTED_EXTENSIONS.includes(ext)) cb(null, true);
+    else
+      cb(
+        new Error(
+          `Unsupported file type "${ext || file.originalname}". Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`
+        )
+      );
   },
 });
 
@@ -80,8 +92,10 @@ router.delete('/:id', async (req, res) => {
   db.prepare('DELETE FROM chat_history WHERE doc_id = ?').run(req.params.id);
   db.prepare('DELETE FROM documents WHERE id = ?').run(req.params.id);
 
-  const filePath = path.join(UPLOAD_DIR, `${req.params.id}.pdf`);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  // Remove the stored file regardless of its extension (pdf/docx/txt/md).
+  for (const f of fs.readdirSync(UPLOAD_DIR)) {
+    if (f.startsWith(`${req.params.id}.`)) fs.unlinkSync(path.join(UPLOAD_DIR, f));
+  }
 
   res.json({ ok: true });
 });

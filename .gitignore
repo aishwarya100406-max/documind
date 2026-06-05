@@ -15,9 +15,10 @@ chroma-data/
 # Frontend build
 frontend/dist/
 
-# Generated test PDFs
+# Generated test fixtures
 sample.pdf
 formulas.pdf
+test.docx
 
 # Logs / OS
 *.log

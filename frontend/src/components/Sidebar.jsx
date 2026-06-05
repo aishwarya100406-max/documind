@@ -2,6 +2,11 @@ import { useRef, useState } from 'react';
 import { uploadDocument } from '../api.js';
 import DocumentCard from './DocumentCard.jsx';
 
+// Keep in sync with MAX_UPLOAD_MB on the backend (this is just a UX pre-check;
+// the server is the real enforcer).
+const MAX_UPLOAD_MB = 50;
+const ACCEPT = '.pdf,.docx,.txt,.md';
+
 export default function Sidebar({ docs, selectedId, onSelect, onRefresh }) {
   const fileRef = useRef(null);
   const [progress, setProgress] = useState(null);
@@ -12,8 +17,8 @@ export default function Sidebar({ docs, selectedId, onSelect, onRefresh }) {
     if (!file) return;
     setError(null);
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File exceeds the 10MB limit');
+    if (file.size > MAX_UPLOAD_MB * 1024 * 1024) {
+      setError(`File exceeds the ${MAX_UPLOAD_MB}MB limit`);
       if (fileRef.current) fileRef.current.value = '';
       return;
     }
@@ -43,15 +48,18 @@ export default function Sidebar({ docs, selectedId, onSelect, onRefresh }) {
           onClick={() => fileRef.current?.click()}
           className="w-full bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-indigo-700 transition"
         >
-          ＋ Upload PDF
+          ＋ Upload document
         </button>
         <input
           ref={fileRef}
           type="file"
-          accept="application/pdf"
+          accept={ACCEPT}
           className="hidden"
           onChange={onFile}
         />
+        <p className="text-[10px] text-slate-400 mt-1.5 text-center">
+          PDF, DOCX, TXT, MD · up to {MAX_UPLOAD_MB}MB
+        </p>
         {progress !== null && (
           <div className="mt-2">
             <div className="h-2 bg-slate-200 rounded overflow-hidden">

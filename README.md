@@ -1,6 +1,6 @@
 # 🧠 DocuMind — RAG Document Intelligence
 
-Upload PDFs, then chat with them. DocuMind runs a full Retrieval-Augmented
+Upload documents (PDF, Word, text/markdown), then chat with them. DocuMind runs a full Retrieval-Augmented
 Generation pipeline: PDFs are parsed, chunked, embedded **locally** (no embedding
 API cost), and stored in **ChromaDB**. Questions retrieve the most relevant chunks
 and stream an answer from **Groq (llama-3.1-8b-instant)** — with cited source chunks and a
@@ -16,7 +16,7 @@ relevance/confidence indicator.
 | Embeddings   | `@xenova/transformers` — `Xenova/all-MiniLM-L6-v2` (runs locally) |
 | LLM          | Groq API — `llama-3.1-8b-instant` (streaming; `llama3-8b-8192` was decommissioned) |
 | Metadata DB  | SQLite via `better-sqlite3`                        |
-| PDF parsing  | `unpdf` (modern pdf.js; `pdf-parse` is broken on Node 24) |
+| File parsing | `unpdf` (PDF), `mammoth` (DOCX), plain read (TXT/MD) |
 | File storage | local `backend/uploads/`                          |
 
 ## How the RAG pipeline works
@@ -117,7 +117,7 @@ CHROMA_URL=http://localhost:8001
 
 | Method | Route                            | Description                          |
 | ------ | -------------------------------- | ------------------------------------ |
-| POST   | `/api/documents/upload`          | Upload a PDF (≤10MB) → ingest        |
+| POST   | `/api/documents/upload`          | Upload PDF/DOCX/TXT/MD (≤`MAX_UPLOAD_MB`, default 50) → ingest |
 | GET    | `/api/documents`                 | List documents                       |
 | DELETE | `/api/documents/:id`             | Delete (Chroma + SQLite + file)      |
 | POST   | `/api/documents/:id/summarize`   | (Re)generate 5-bullet summary        |

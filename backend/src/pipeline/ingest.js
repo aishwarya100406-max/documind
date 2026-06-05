@@ -1,12 +1,40 @@
 import fs from 'fs';
+import path from 'path';
 // unpdf bundles a current build of Mozilla's pdf.js and works on modern Node.
 // (The originally-specced `pdf-parse` ships a 2018 pdf.js that throws on Node 24.)
 import { getDocumentProxy, extractText } from 'unpdf';
+import mammoth from 'mammoth';
 
 import { chunkText } from './chunker.js';
 import { embedMany } from './embeddings.js';
 import { getOrCreateCollection } from '../chroma/client.js';
 import { getDb } from '../db/sqlite.js';
+
+export const SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md'];
+
+/**
+ * Extract text from a supported document as an array of "pages".
+ * Only PDFs have real page boundaries; other formats are returned as a single
+ * page (page 1), so page-wise features degrade gracefully for them.
+ */
+async function extractPages(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+
+  if (ext === '.pdf') {
+    const buffer = new Uint8Array(fs.readFileSync(filePath));
+    const pdf = await getDocumentProxy(buffer);
+    const { totalPages, text } = await extractText(pdf, { mergePages: false });
+    return { pageTexts: text, totalPages };
+  }
+  if (ext === '.docx') {
+    const { value } = await mammoth.extractRawText({ path: filePath });
+    return { pageTexts: [value || ''], totalPages: 1 };
+  }
+  if (ext === '.txt' || ext === '.md') {
+    return { pageTexts: [fs.readFileSync(filePath, 'utf8')], totalPages: 1 };
+  }
+  throw new Error(`Unsupported file type "${ext}". Supported: ${SUPPORTED_EXTENSIONS.join(', ')}`);
+}
 
 /**
  * Full ingestion pipeline for one uploaded PDF:
@@ -18,9 +46,7 @@ import { getDb } from '../db/sqlite.js';
 export async function ingestDocument(docId, filePath) {
   const db = getDb();
   try {
-    const buffer = new Uint8Array(fs.readFileSync(filePath));
-    const pdf = await getDocumentProxy(buffer);
-    const { totalPages, text: pageTexts } = await extractText(pdf, { mergePages: false });
+    const { pageTexts, totalPages } = await extractPages(filePath);
 
     // { text, page } — chunk each page separately to preserve page boundaries.
     const chunks = [];
