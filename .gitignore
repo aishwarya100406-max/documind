@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# Runtime data (per-package rules also in backend/.gitignore & frontend/.gitignore)
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/data/
+chroma-data/
+
+# Frontend build
+frontend/dist/
+
+# Generated test PDFs
+sample.pdf
+formulas.pdf
+
+# Logs / OS
+*.log
+.DS_Store
+Thumbs.db
